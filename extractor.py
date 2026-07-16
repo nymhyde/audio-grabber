@@ -31,9 +31,10 @@ def output_dir_for(source: Path) -> Path:
     return base / "MP3"
 
 def resolve_ffmpeg() -> str:
-    bundled = Path(getattr(sys, "_MEIPASS", "")) / "ffmpeg.exe"
-    if bundled.is_file():
-        return str(bundled)
+    if hasattr(sys, "_MEIPASS"):
+        bundled = Path(sys._MEIPASS) / "ffmpeg.exe"
+        if bundled.is_file():
+            return str(bundled)
     exe = shutil.which("ffmpeg")
     if not exe:
         raise RuntimeError("ffmpeg not found")
