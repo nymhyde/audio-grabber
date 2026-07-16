@@ -31,7 +31,7 @@ class Api:
 
     def _run(self, paths):
         def cb(i, total, result):
-            _js(self.window, "showProgress", i, total, result.video.name)
+            _js(self.window, "showProgress", i, total, result.video.name, result.status)
         summary = extractor.extract_all(paths, progress_cb=cb)
         if summary.total == 0:
             _js(self.window, "showEmpty")
@@ -50,11 +50,28 @@ class Api:
         else:
             subprocess.run(["xdg-open", str(p)])
 
+def _bind_drop(window, api):
+    def on_drop(e):
+        files = (e.get("dataTransfer") or {}).get("files") or []
+        paths = [f.get("pywebviewFullPath") for f in files]
+        paths = [p for p in paths if p]
+        if paths:
+            api.start(paths)
+        else:
+            _js(window, "showEmpty")
+    try:
+        el = window.dom.get_element("#drop")
+        if el is not None:
+            el.events.drop += on_drop
+    except Exception:
+        pass  # drag unsupported on this backend; click/Pick buttons still work
+
 def main():
     api = Api()
     window = webview.create_window("Video → MP3", _ui_path(), js_api=api,
                                    width=460, height=560, resizable=False)
     api.window = window
+    window.events.loaded += lambda: _bind_drop(window, api)
     webview.start()
 
 if __name__ == "__main__":

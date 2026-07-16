@@ -32,10 +32,10 @@
     <h1>Video → MP3</h1>
 
     <div id="idle">
-      <div class="drop" id="drop">
+      <div class="drop" id="drop" onclick="pickFiles()" style="cursor:pointer">
         <div class="dropicon">🎵</div>
         <div style="font-weight:700;font-size:16px">Drop videos here</div>
-        <div class="drophint">.mp4 · .mov · and more</div>
+        <div class="drophint">Drop videos here — or click to choose · .mp4 · .mov · and more</div>
       </div>
       <div class="btnrow">
         <button class="btn" onclick="pickFiles()">Pick a file</button>
@@ -56,7 +56,7 @@
       <div class="check" id="doneicon">✅</div>
       <div class="status" id="donetitle" style="margin-top:8px"></div>
       <div class="sub" id="donesub"></div>
-      <button class="btn" style="margin-top:16px" onclick="openOut()">📂 Open the MP3 folder</button>
+      <button class="btn" id="openbtn" style="margin-top:16px" onclick="openOut()">📂 Open the MP3 folder</button>
       <button class="btn ghost" style="margin-top:10px" onclick="reset()">Do more videos</button>
     </div>
   </div>
@@ -69,20 +69,29 @@
   async function pickFiles(){ const p = await api().pick_files(); if(p&&p.length) api().start(p); }
   async function pickFolder(){ const p = await api().pick_folder(); if(p&&p.length) api().start(p); }
   function openOut(){ if(outPath) api().open_output(outPath); }
-  function reset(){ document.getElementById('list').innerHTML=''; document.getElementById('fill').style.width='0'; setScreen('idle'); }
+  function reset(){
+    document.getElementById('list').innerHTML='';
+    document.getElementById('fill').style.width='0';
+    document.getElementById('prog').textContent='';
+    document.getElementById('warn').textContent='';
+    setScreen('idle');
+  }
 
   // called from Python
-  function showProgress(done,total,name){
+  function showProgress(done,total,name,status){
     setScreen('working');
     document.getElementById('fill').style.width = (total? (done/total*100):0)+'%';
     document.getElementById('prog').textContent = done+' of '+total+' done · '+name;
-    const li=document.createElement('div'); li.textContent='✓ '+name;
+    const icon = (status==='skipped'||status==='error') ? '–' : '✓';
+    const li=document.createElement('div'); li.textContent=icon+' '+name;
     document.getElementById('list').appendChild(li);
   }
   function showDone(ok,skipped,error,path){
     outPath = path; setScreen('done');
     const total = ok+skipped+error;
     const t=document.getElementById('donetitle'), s=document.getElementById('donesub');
+    const openBtn=document.getElementById('openbtn');
+    openBtn.style.display = ok>0 ? '' : 'none';
     if(skipped||error){
       document.getElementById('doneicon').textContent='🎉';
       t.textContent = ok+' done, '+(skipped+error)+' skipped';
@@ -102,9 +111,5 @@
   const drop=document.getElementById('drop');
   ['dragenter','dragover'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.add('over');}));
   ['dragleave','drop'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.remove('over');}));
-  drop.addEventListener('drop',ev=>{
-    const paths=[...ev.dataTransfer.files].map(f=>f.path).filter(Boolean);
-    if(paths.length) api().start(paths); else showEmpty();
-  });
 </script>
 </body></html>
