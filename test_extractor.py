@@ -54,3 +54,19 @@ def test_unique_path_no_overwrite(tmp_path):
     assert r1.output != r2.output
     assert r2.output.name == "clip (2).mp3"
     assert r1.output.exists()  # first not overwritten
+
+def test_extract_all_counts_and_progress(tmp_path):
+    _make_clip(tmp_path / "a.mp4", with_audio=True)
+    _make_clip(tmp_path / "b.mp4", with_audio=False)  # skipped
+    (tmp_path / "c.mp4").write_bytes(b"junk")          # error
+    calls = []
+    s = extractor.extract_all([tmp_path],
+                              progress_cb=lambda i, n, r: calls.append((i, n, r.status)))
+    assert s.total == 3 and s.ok == 1 and s.skipped == 1 and s.error == 1
+    assert len(calls) == 3
+    assert calls[-1][1] == 3           # total reported
+    assert s.out_dir == tmp_path / "MP3"
+
+def test_extract_all_empty(tmp_path):
+    s = extractor.extract_all([tmp_path])
+    assert s.total == 0 and s.out_dir is None

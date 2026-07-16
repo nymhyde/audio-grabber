@@ -48,6 +48,15 @@ class Result:
     output: Path | None
     message: str = ""
 
+@dataclass
+class Summary:
+    total: int
+    ok: int
+    skipped: int
+    error: int
+    out_dir: Path | None
+    results: list
+
 def _unique_path(path: Path) -> Path:
     if not path.exists():
         return path
@@ -86,3 +95,20 @@ def extract_one(video: Path, out_dir: Path) -> Result:
         return Result(video, "ok", out)
     except Exception as e:  # never let one bad file crash the batch
         return Result(video, "error", None, str(e))
+
+def extract_all(paths, progress_cb=None) -> Summary:
+    videos = find_videos(paths)
+    total = len(videos)
+    if total == 0:
+        return Summary(0, 0, 0, 0, None, [])
+    out_dir = output_dir_for(videos[0])
+    results, ok, skipped, error = [], 0, 0, 0
+    for i, v in enumerate(videos, start=1):
+        r = extract_one(v, out_dir)
+        results.append(r)
+        ok += r.status == "ok"
+        skipped += r.status == "skipped"
+        error += r.status == "error"
+        if progress_cb:
+            progress_cb(i, total, r)
+    return Summary(total, ok, skipped, error, out_dir, results)
