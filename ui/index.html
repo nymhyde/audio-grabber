@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Video → MP3</title>
+<style>
+  *{box-sizing:border-box;font-family:'Segoe UI',system-ui,sans-serif}
+  body{margin:0;background:#fbf7f1;color:#3d2b23;-webkit-user-select:none;user-select:none}
+  .wrap{padding:28px 26px}
+  .logo{font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:#c97b5a}
+  h1{font-size:24px;font-weight:800;margin:2px 0 20px}
+  .drop{border:2px dashed #d9a684;background:#f6ece2;border-radius:16px;padding:34px 18px;text-align:center;color:#8a6650;transition:.15s}
+  .drop.over{background:#f0dfce;border-color:#c97b5a}
+  .dropicon{font-size:34px}
+  .drophint{font-size:13px;opacity:.75;margin-top:4px}
+  .btnrow{display:flex;gap:12px;margin-top:16px}
+  .btn{flex:1;border:none;border-radius:12px;padding:13px 0;font-size:15px;font-weight:700;cursor:pointer;background:#c97b5a;color:#fff}
+  .btn.ghost{background:transparent;border:2px solid #c97b5a;color:#c97b5a}
+  .foot{margin-top:18px;font-size:12px;opacity:.6;text-align:center}
+  .warn{color:#c0392b;font-weight:700;text-align:center;margin-top:12px;min-height:18px}
+  .bar{height:14px;border-radius:8px;background:#eaddce;overflow:hidden;margin:16px 0 8px}
+  .fill{height:100%;width:0;background:#c97b5a;transition:width .2s}
+  .status{font-size:15px;font-weight:700}
+  .sub{font-size:13px;opacity:.7;margin-top:3px}
+  .list{font-size:12px;opacity:.7;margin-top:12px;line-height:1.7;max-height:150px;overflow:auto}
+  .center{text-align:center}
+  .check{font-size:46px}
+  /* screen visibility */
+  #idle,#working,#done{display:none}
+  body.idle #idle,body.working #working,body.done #done{display:block}
+</style></head>
+<body class="idle">
+  <div class="wrap">
+    <div class="logo">Audio Grabber</div>
+    <h1>Video → MP3</h1>
+
+    <div id="idle">
+      <div class="drop" id="drop">
+        <div class="dropicon">🎵</div>
+        <div style="font-weight:700;font-size:16px">Drop videos here</div>
+        <div class="drophint">.mp4 · .mov · and more</div>
+      </div>
+      <div class="btnrow">
+        <button class="btn" onclick="pickFiles()">Pick a file</button>
+        <button class="btn ghost" onclick="pickFolder()">Pick a folder</button>
+      </div>
+      <div class="warn" id="warn"></div>
+      <div class="foot">Your videos stay untouched · MP3s saved in a new folder</div>
+    </div>
+
+    <div id="working">
+      <div class="status">Working on your videos…</div>
+      <div class="bar"><div class="fill" id="fill"></div></div>
+      <div class="sub" id="prog"></div>
+      <div class="list" id="list"></div>
+    </div>
+
+    <div id="done" class="center">
+      <div class="check" id="doneicon">✅</div>
+      <div class="status" id="donetitle" style="margin-top:8px"></div>
+      <div class="sub" id="donesub"></div>
+      <button class="btn" style="margin-top:16px" onclick="openOut()">📂 Open the MP3 folder</button>
+      <button class="btn ghost" style="margin-top:10px" onclick="reset()">Do more videos</button>
+    </div>
+  </div>
+
+<script>
+  let outPath = null;
+  const api = () => window.pywebview.api;
+  function setScreen(s){ document.body.className = s; }
+
+  async function pickFiles(){ const p = await api().pick_files(); if(p&&p.length) api().start(p); }
+  async function pickFolder(){ const p = await api().pick_folder(); if(p&&p.length) api().start(p); }
+  function openOut(){ if(outPath) api().open_output(outPath); }
+  function reset(){ document.getElementById('list').innerHTML=''; document.getElementById('fill').style.width='0'; setScreen('idle'); }
+
+  // called from Python
+  function showProgress(done,total,name){
+    setScreen('working');
+    document.getElementById('fill').style.width = (total? (done/total*100):0)+'%';
+    document.getElementById('prog').textContent = done+' of '+total+' done · '+name;
+    const li=document.createElement('div'); li.textContent='✓ '+name;
+    document.getElementById('list').appendChild(li);
+  }
+  function showDone(ok,skipped,error,path){
+    outPath = path; setScreen('done');
+    const total = ok+skipped+error;
+    const t=document.getElementById('donetitle'), s=document.getElementById('donesub');
+    if(skipped||error){
+      document.getElementById('doneicon').textContent='🎉';
+      t.textContent = ok+' done, '+(skipped+error)+' skipped';
+      s.textContent = 'Some files had no audio and were skipped. The rest worked fine.';
+    } else {
+      document.getElementById('doneicon').textContent='✅';
+      t.textContent = 'All '+total+' done!';
+      s.textContent = 'Saved to a new folder called "MP3".';
+    }
+  }
+  function showEmpty(){
+    const w=document.getElementById('warn'); w.textContent='No videos found there.';
+    setTimeout(()=>{w.textContent='';}, 4000);
+  }
+
+  // drag & drop
+  const drop=document.getElementById('drop');
+  ['dragenter','dragover'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.add('over');}));
+  ['dragleave','drop'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.remove('over');}));
+  drop.addEventListener('drop',ev=>{
+    const paths=[...ev.dataTransfer.files].map(f=>f.path).filter(Boolean);
+    if(paths.length) api().start(paths); else showEmpty();
+  });
+</script>
+</body></html>
