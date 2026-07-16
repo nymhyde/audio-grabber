@@ -1,6 +1,6 @@
 # app.py
 from __future__ import annotations
-import os, sys, threading, subprocess
+import json, os, sys, threading, subprocess
 from pathlib import Path
 import webview
 import extractor
@@ -10,7 +10,6 @@ def _ui_path() -> str:
     return str(base / "ui" / "index.html")
 
 def _js(window, fn, *args):
-    import json
     call = f"{fn}(" + ",".join(json.dumps(a) for a in args) + ")"
     window.evaluate_js(call)
 
@@ -53,7 +52,7 @@ class Api:
 
 def main():
     api = Api()
-    window = webview.create_window("Video → MP3", _ui_path(),
+    window = webview.create_window("Video → MP3", _ui_path(), js_api=api,
                                    width=460, height=560, resizable=False)
     api.window = window
     webview.start()
