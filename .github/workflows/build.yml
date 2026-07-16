@@ -1,0 +1,34 @@
+# .github/workflows/build.yml
+name: build-windows
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install deps
+        run: pip install pywebview pyinstaller
+      - name: Download ffmpeg
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip" -OutFile ffmpeg.zip
+          Expand-Archive ffmpeg.zip -DestinationPath ffmpeg_dl
+          $exe = Get-ChildItem -Recurse ffmpeg_dl -Filter ffmpeg.exe | Select-Object -First 1
+          Copy-Item $exe.FullName ffmpeg.exe
+      - name: Build exe
+        run: >
+          pyinstaller --noconfirm --onefile --windowed --name AudioGrabber
+          --add-data "ui;ui"
+          --add-binary "ffmpeg.exe;."
+          app.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AudioGrabber
+          path: dist/AudioGrabber.exe
