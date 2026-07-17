@@ -16,7 +16,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install deps
-        run: pip install pywebview pyinstaller
+        run: pip install pywebview pyinstaller pytest
       - name: Download ffmpeg
         shell: pwsh
         run: |
@@ -24,12 +24,28 @@ jobs:
           Expand-Archive ffmpeg.zip -DestinationPath ffmpeg_dl
           $exe = Get-ChildItem -Recurse ffmpeg_dl -Filter ffmpeg.exe | Select-Object -First 1
           Copy-Item $exe.FullName ffmpeg.exe
+      - name: Run tests (Windows Python)
+        shell: pwsh
+        run: |
+          $env:PATH = "$PWD;$env:PATH"   # so resolve_ffmpeg's shutil.which finds ffmpeg.exe
+          python -m pytest -q
       - name: Build exe
         run: >
           pyinstaller --noconfirm --onefile --windowed --name AudioGrabber
           --add-data "ui;ui"
           --add-binary "ffmpeg.exe;."
           app.py
+      - name: Smoke-test the built exe (bundled ffmpeg + extraction, headless)
+        shell: pwsh
+        run: |
+          ./ffmpeg.exe -y -f lavfi -i "testsrc=duration=1:size=160x120:rate=10" `
+            -f lavfi -i "sine=frequency=440:duration=1" -shortest smoke.mp4
+          # GUI-subsystem exe: must Start-Process -Wait to get the exit code
+          $p = Start-Process -FilePath ".\dist\AudioGrabber.exe" `
+            -ArgumentList '--selftest','smoke.mp4' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "selftest exited $($p.ExitCode)" }
+          if (!(Test-Path ".\MP3\smoke.mp3")) { throw "no MP3\smoke.mp3 produced" }
+          Write-Host "SMOKE OK: bundled exe produced MP3\smoke.mp3"
       - uses: actions/upload-artifact@v4
         with:
           name: AudioGrabber
